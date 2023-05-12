@@ -15,5 +15,5 @@ dbx upload -s ~/Downloads/README.md -d /Downloads
 dbx upload -s ~/Downloads -d /Downloads
 
 # download a file
-
+dbx download -s /Downloads/README.md -d ~/Downloads/README.md
 ```
