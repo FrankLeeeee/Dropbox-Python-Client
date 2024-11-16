@@ -4,7 +4,7 @@ Some simple scripts to perform upload and download for Dropbox
 
 ```bash
 # set token
-dbx crendential --token <your-dropbox-token>
+dbx credential --token <your-dropbox-token>
 
 # upload a file/folder
 dbx upload -s <your-local-path> -d <remote-folder-path>
