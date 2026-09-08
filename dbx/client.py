@@ -28,43 +28,78 @@ class DropboxClient:
             t1 = time.time()
             print('Total elapsed time for %s: %.3f' % (message, t1 - t0))
 
-    def download(self, remote_path, local_path):
-        """Download a file.
+    def _download_file(self, remote_path, local_path):
+        """Download a single file to ``local_path``.
 
-        Return the bytes of the file, or None if it doesn't exist.
+        If ``local_path`` is an existing directory, the file is placed inside
+        it using its remote basename.
         """
+        if os.path.isdir(local_path):
+            local_path = os.path.join(local_path, os.path.basename(remote_path))
 
-        # files = self.dbx.files_list_folder(remote_path).entries
-        # files_list = []
+        parent = os.path.dirname(local_path)
+        if parent and not os.path.exists(parent):
+            os.makedirs(parent)
 
-        # for file in files:
-        #     if isinstance(file, dropbox.files.FileMetadata):
-        #         files_list.append(file.path_display)
-        #     else:
-        #         print(file.path_display)
+        since = time.time()
+        try:
+            md = self.dbx.files_download_to_file(local_path, remote_path)
+        except (dropbox.exceptions.HttpError, dropbox.exceptions.ApiError) as err:
+            print('*** Failed to download {}: {}'.format(remote_path, err))
+            return None
 
-        #         # metadata = {
-        #         #     'name': file.name,
-        #         #     'path_display': file.path_display,
-        #         #     'client_modified': file.client_modified,
-        #         #     'server_modified': file.server_modified
-        #         # }
-        #         # files_list.append(metadata)
+        time_elapsed = time.time() - since
+        print('Downloaded {} -> {} ({} bytes)'.format(remote_path, local_path, md.size).ljust(15) +
+              ' --- {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60).rjust(15))
+        return md
 
-        # print(files_list)
+    def _list_folder_files(self, remote_path):
+        """Yield FileMetadata for every file under ``remote_path``, recursively."""
+        result = self.dbx.files_list_folder(remote_path, recursive=True)
+        while True:
+            for entry in result.entries:
+                if isinstance(entry, dropbox.files.FileMetadata):
+                    yield entry
+            if not result.has_more:
+                break
+            result = self.dbx.files_list_folder_continue(result.cursor)
 
+    def _download_folder(self, remote_path, local_path):
+        """Download every file under ``remote_path`` into the local directory
+        ``local_path``, preserving the folder structure."""
+        remote_path = remote_path.rstrip('/')
+        if not os.path.exists(local_path):
+            os.makedirs(local_path)
+
+        num_files = 0
+        for entry in self._list_folder_files(remote_path):
+            # path_display keeps the original casing for the local file name.
+            rel_path = entry.path_display[len(remote_path):].lstrip('/')
+            dest = os.path.join(local_path, *rel_path.split('/'))
+            self._download_file(entry.path_display, dest)
+            num_files += 1
+
+        print('Downloaded {} file(s) from {} to {}'.format(num_files, remote_path, local_path))
+
+    def download(self, remote_path, local_path):
+        """Download a file or a folder.
+
+        If ``remote_path`` is a file, it is saved to ``local_path`` (or inside
+        it, if ``local_path`` is an existing directory). If ``remote_path`` is
+        a folder, its full contents are downloaded recursively into the local
+        directory ``local_path``.
+        """
         with self.stopwatch('download'):
             try:
-                md, res = self.dbx.files_download(remote_path)
-            except dropbox.exceptions.HttpError as err:
-                print('*** HTTP error', err)
+                md = self.dbx.files_get_metadata(remote_path)
+            except dropbox.exceptions.ApiError as err:
+                print('*** Cannot find {}: {}'.format(remote_path, err))
                 return None
-        data = res.content
-        print(len(data), 'bytes; md:', md)
 
-        with open(local_path, 'wb') as f:
-            f.write(data)
-        return data
+            if isinstance(md, dropbox.files.FolderMetadata):
+                self._download_folder(md.path_display, local_path)
+            else:
+                self._download_file(remote_path, local_path)
 
     def _upload_file(self, local_path, remote_path):
         # compute chunk size

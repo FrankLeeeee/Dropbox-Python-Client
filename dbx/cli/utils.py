@@ -39,8 +39,8 @@ def upload(src, dst):
 
 
 @click.command()
-@click.option('-s', '--src', required=True, help='Dropbox download path')
-@click.option('-d', '--dst', required=True, help='Local file path as destination')
+@click.option('-s', '--src', required=True, help='Dropbox file or folder path to download')
+@click.option('-d', '--dst', required=True, help='Local destination path (a file path, or a directory when downloading a folder)')
 def download(src, dst):
     token = CacheDirectory().read_toekn()
     client = DropboxClient(token)

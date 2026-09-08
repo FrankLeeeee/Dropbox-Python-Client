@@ -1,6 +1,18 @@
-# Dropbox-Python-Client
+<p align="center">
+  <img src="assets/logo.svg" alt="dbx - Dropbox Python Client" width="480">
+</p>
 
-Some simple scripts to perform upload and download for Dropbox
+<p align="center">
+  A tiny command-line client for uploading and downloading files and folders to and from Dropbox.
+</p>
+
+## Installation
+
+```bash
+pip install -e .
+```
+
+## Usage
 
 ```bash
 # set token
@@ -16,4 +28,8 @@ dbx upload -s ~/Downloads -d /Downloads
 
 # download a file
 dbx download -s /Downloads/README.md -d ~/Downloads/README.md
+
+# download a folder (recursively, preserving structure)
+# the destination is a local directory and is created if missing
+dbx download -s /Downloads -d ~/Downloads
 ```
